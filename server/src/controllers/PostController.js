@@ -27,19 +27,42 @@ const createPost = async (req, res) => {
             description,
             quantity,
             address,
-            district,
+            district: district.toLowerCase(),
             donor: req.user.id,
             expiryHours,
         });
+
+        await newPost.save();
+        return res.status(201).json({ message: 'Post created successfully', post: newPost });
     } catch (error) {
         console.error('Error creating post:', error);
         return res.status(500).json({ message: 'Server error while creating post' });
     }
 };
+const getAvailablePosts = async (req, res) => {
+    try {
+        const posts = await Post.find({ status: 'Available' }).populate('donor', 'username email district phoneNumber');
+        return res.status(200).json(posts);
+    }
+    catch (error) {
+        console.error('Error fetching available posts:', error);
+        return res.status(500).json({ message: 'Server error while fetching available posts' });
+    }
+};
+const getClaimedPosts = async (req, res) => {
+    try {
+        const posts = await Post.find({ status: 'Claimed' }).populate('donor', 'username email district phoneNumber');
+        return res.status(200).json(posts);
+    }
+    catch (error) {
+        console.error('Error fetching claimed posts:', error);
+        return res.status(500).json({ message: 'Server error while fetching claimed posts' });
+    }
+};
 
 const getAllPosts = async (req, res) => {
     try {
-        const posts = await Post.find().populate('donor', 'username email district');
+        const posts = await Post.find().populate('donor', 'username email district phoneNumber');
         return res.status(200).json(posts);
     } catch (error) {
         console.error('Error fetching posts:', error);
@@ -49,7 +72,7 @@ const getAllPosts = async (req, res) => {
 const getPostById = async (req, res) => {
     try {
         const postId = req.params.id;
-        const post = await Post.findById(postId).populate('donor', 'username email district');
+        const post = await Post.findById(postId).populate('donor', 'username email district phoneNumber');
         if (!post) {
             return res.status(404).json({ message: 'Post not found' });
         }
@@ -63,8 +86,8 @@ const getPostById = async (req, res) => {
 
 const getPostsByDistrict = async (req, res) => {
     try {
-        const district = req.params.district;
-        const posts = await Post.find({ district }).populate('donor', 'username email district');
+        const district = req.params.district.toLowerCase();
+        const posts = await Post.find({ district }).populate('donor', 'username email district phoneNumber');
         return res.status(200).json(posts);
     } catch (error) {
         console.error('Error fetching posts by district:', error);
@@ -74,9 +97,7 @@ const getPostsByDistrict = async (req, res) => {
 const getPostsByUser = async (req, res) => {
     try {
         const userId = req.params.userId;
-        const posts = await Post.find
-
-({ donor: userId }).populate('donor', 'username email district');
+        const posts = await Post.find({ donor: userId }).populate('donor', 'username email district phoneNumber');
         return res.status(200).json(posts);
     }
         catch (error) {
@@ -162,14 +183,16 @@ const deleteExpiredPosts = async () => {
     try {
         const posts = await Post.find({ status: 'Available' });
         const now = new Date();
-        if(posts.expiryHours-now.getTime()/(1000*60*60) <= 0){
-            posts.status='Expired';
-            await posts.save();
-        }   
+        for (const post of posts) {
+            if (post.expiryHours - now.getTime() / (1000 * 60 * 60) <= 0) {
+                post.status = 'Expired';
+                await post.save();
+            }
+        }
     } catch (error) {
         console.error('Error deleting expired posts:', error);
     }
 };
 
 setInterval(deleteExpiredPosts, 60 * 60 * 1000);
-module.exports = { createPost, getPostsByDistrict, getPostsByUser, updatePostStatus, updatePost, deletePost ,getAllPosts,getPostById};
+module.exports = { createPost, getPostsByDistrict,getAvailablePosts, getClaimedPosts, getPostsByUser, updatePostStatus, updatePost, deletePost ,getAllPosts,getPostById};
