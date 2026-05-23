@@ -78,11 +78,14 @@ const loginUser = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-
+        if(user.banned){
+            return res.status(403).json({ message: 'Your account has been banned.' });
+        }
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
             return res.status(401).json({ message: 'Invalid password' });
         }
+
 
         const token = generateToken(user);
         const userResponse = {
